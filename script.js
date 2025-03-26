@@ -75,32 +75,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadAdminDetails();
 
-  const currentPage = window.location.pathname
-    .replace(/^\/|\/$/g, "")
+  let currentPage = window.location.pathname
+    .replace(/^\/|\/$/g, "") // Removes leading and trailing slashes
     .toLowerCase();
+
+  if (currentPage === "") {
+    currentPage = "index.html"; // Treat empty path as index.html
+  }
+
   console.log("Current page:", currentPage);
 
-  if (currentPage === "/" || currentPage === "index.html") {
+  if (currentPage === "index.html") {
     loadOverviewStats();
     setupOrderModals();
-  } else if (
-    currentPage === "products" ||
-    currentPage === "products/index.html"
-  ) {
+  } else if (currentPage.startsWith("products")) {
     loadProducts();
     setupProductModals();
     setupSearch();
-  } else if (currentPage === "orders" || currentPage === "orders/index.html") {
+  } else if (currentPage.startsWith("orders")) {
     loadOrders();
     setupOrderModals();
     setupOrderSearch();
-  } else if (
-    currentPage === "settings" ||
-    currentPage === "settings/index.html"
-  ) {
+  } else if (currentPage.startsWith("settings")) {
     setupSettings();
   }
 });
+
 
 async function loadAdminDetails() {
   const adminNameEl = document.getElementById("admin-name");
