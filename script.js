@@ -133,7 +133,11 @@ async function loadAdminDetails() {
   }
 }
 
-// Overview Page Functions
+// Store chart instances globally to track them
+let orderStatusChartInstance = null;
+let revenueOverTimeChartInstance = null;
+let ordersPerProductChartInstance = null;
+
 async function loadOverviewStats() {
   const loading = document.getElementById("loading");
   const statsError = document.getElementById("stats-error");
@@ -237,7 +241,12 @@ async function loadOverviewStats() {
         canceled: statsData.canceledOrders,
       });
       const ctx = orderStatusChartCanvas.getContext("2d");
-      new Chart(ctx, {
+      // Destroy existing chart if it exists
+      if (orderStatusChartInstance) {
+        orderStatusChartInstance.destroy();
+        console.log("🗑️ Destroyed previous Order Status Chart");
+      }
+      orderStatusChartInstance = new Chart(ctx, {
         type: "pie",
         data: {
           labels: ["Pending", "Shipped", "Canceled"],
@@ -297,8 +306,12 @@ async function loadOverviewStats() {
         dates,
         revenueData,
       });
-
-      new Chart(ctx, {
+      // Destroy existing chart if it exists
+      if (revenueOverTimeChartInstance) {
+        revenueOverTimeChartInstance.destroy();
+        console.log("🗑️ Destroyed previous Revenue Over Time Chart");
+      }
+      revenueOverTimeChartInstance = new Chart(ctx, {
         type: "line",
         data: {
           labels: dates,
@@ -351,8 +364,12 @@ async function loadOverviewStats() {
         productNames,
         orderCounts,
       });
-
-      new Chart(ctx, {
+      // Destroy existing chart if it exists
+      if (ordersPerProductChartInstance) {
+        ordersPerProductChartInstance.destroy();
+        console.log("🗑️ Destroyed previous Orders Per Product Chart");
+      }
+      ordersPerProductChartInstance = new Chart(ctx, {
         type: "bar",
         data: {
           labels: productNames,
@@ -402,30 +419,22 @@ async function loadOverviewStats() {
         div.innerHTML = `
           <div class="flex items-center space-x-2">
             <p class="text-gray-800 font-medium">Order #${order.orderNumber}</p>
-            <button class="copy-order-number-btn bg-gray-200 text-gray-800 px-2 py-1 rounded hover:bg-gray-300 transition text-sm" data-order-number="${
-              order.orderNumber
-            }">
+            <button class="copy-order-number-btn bg-gray-200 text-gray-800 px-2 py-1 rounded hover:bg-gray-300 transition text-sm" data-order-number="${order.orderNumber}">
               Copy
             </button>
           </div>
           <div class="text-right">
-            <p class="text-gray-800 font-medium">₦${(
-              order.totalPrice ?? 0
-            ).toLocaleString()}</p>
+            <p class="text-gray-800 font-medium">₦${(order.totalPrice ?? 0).toLocaleString()}</p>
             <p class="text-sm ${
               order.orderStatus === "shipped"
                 ? "text-green-500"
                 : order.orderStatus === "canceled"
                 ? "text-red-500"
                 : "text-yellow-500"
-            }">${
-          order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)
-        }</p>
+            }">${order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}</p>
           </div>
           <div>
-            <button class="view-order-btn bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition" data-id="${
-              order._id
-            }">View Details</button>
+            <button class="view-order-btn bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition" data-id="${order._id}">View Details</button>
           </div>
         `;
         recentOrdersEl.appendChild(div);
