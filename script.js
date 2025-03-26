@@ -69,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("adminToken");
-      window.location.href = "/auth.html";
+      window.location.href = "/login.html";
     });
   }
 
@@ -120,7 +120,7 @@ async function loadAdminDetails() {
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("adminToken");
-        window.location.href = "/auth.html";
+        window.location.href = "/login.html";
         return;
       }
       throw new Error(data.error || "Failed to load admin details");
@@ -167,13 +167,17 @@ async function loadOverviewStats() {
   recentOrdersEl.classList.add("hidden");
 
   try {
+    console.log("📤 Fetching stats from:", `${API_BASE_URL}/api/admin/stats`);
     const statsRes = await fetchWithRetry(`${API_BASE_URL}/api/admin/stats`, {
       headers: authHeaders(),
     });
     const statsData = await statsRes.json();
-    console.log("📊 Stats Data:", statsData);
+    console.log("📥 Stats Response Status:", statsRes.status);
+    console.log("📊 Raw Stats Data:", statsData);
+
     if (!statsRes.ok) {
       if (statsRes.status === 401) {
+        console.warn("🔒 401 Unauthorized - Redirecting to login");
         localStorage.removeItem("adminToken");
         window.location.href = "/auth.html";
         return;
@@ -181,6 +185,10 @@ async function loadOverviewStats() {
       throw new Error(statsData.error || "Failed to load stats");
     }
 
+    console.log(
+      "📤 Fetching orders from:",
+      `${API_BASE_URL}/api/orders?page=1`
+    );
     const ordersRes = await fetchWithRetry(
       `${API_BASE_URL}/api/orders?page=1`,
       {
@@ -188,9 +196,12 @@ async function loadOverviewStats() {
       }
     );
     const ordersData = await ordersRes.json();
-    console.log("📦 Orders Data:", ordersData);
+    console.log("📥 Orders Response Status:", ordersRes.status);
+    console.log("📦 Raw Orders Data:", ordersData);
+
     if (!ordersRes.ok) {
       if (ordersRes.status === 401) {
+        console.warn("🔒 401 Unauthorized - Redirecting to login");
         localStorage.removeItem("adminToken");
         window.location.href = "/auth.html";
         return;
@@ -198,6 +209,8 @@ async function loadOverviewStats() {
       throw new Error(ordersData.error || "Failed to load orders");
     }
 
+    // Update stats
+    console.log("🖌️ Updating stats...");
     totalOrdersEl.textContent = (statsData.totalOrders ?? 0).toLocaleString();
     pendingOrdersEl.textContent = (
       statsData.pendingOrders ?? 0
@@ -215,9 +228,14 @@ async function loadOverviewStats() {
       statsData.totalRevenue ?? 0
     ).toLocaleString()}`;
 
-    // Render the Order Status pie chart
+    // Order Status Chart
     const orderStatusChartCanvas = document.getElementById("orderStatusChart");
     if (orderStatusChartCanvas) {
+      console.log("📈 Rendering Order Status Chart with data:", {
+        pending: statsData.pendingOrders,
+        shipped: statsData.shippedOrders,
+        canceled: statsData.canceledOrders,
+      });
       const ctx = orderStatusChartCanvas.getContext("2d");
       new Chart(ctx, {
         type: "pie",
@@ -247,13 +265,8 @@ async function loadOverviewStats() {
         options: {
           responsive: true,
           plugins: {
-            legend: {
-              position: "top",
-            },
-            title: {
-              display: true,
-              text: "Order Status Distribution",
-            },
+            legend: { position: "top" },
+            title: { display: true, text: "Order Status Distribution" },
           },
         },
       });
@@ -261,27 +274,29 @@ async function loadOverviewStats() {
       console.error("Order Status Chart canvas not found.");
     }
 
-    // Render the Revenue Over Time line chart
+    // Revenue Over Time Chart
     const revenueOverTimeChartCanvas = document.getElementById(
       "revenueOverTimeChart"
     );
     if (revenueOverTimeChartCanvas) {
       const ctx = revenueOverTimeChartCanvas.getContext("2d");
-
-      // Prepare data for the last 30 days
       const today = new Date();
       const dates = [];
       const revenueData = [];
       for (let i = 29; i >= 0; i--) {
         const date = new Date(today);
         date.setDate(today.getDate() - i);
-        const dateString = date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+        const dateString = date.toISOString().split("T")[0];
         dates.push(dateString);
-        const revenueEntry = statsData.revenueOverTime.find(
+        const revenueEntry = (statsData.revenueOverTime || []).find(
           (entry) => entry._id === dateString
         );
         revenueData.push(revenueEntry ? revenueEntry.totalRevenue : 0);
       }
+      console.log("📈 Rendering Revenue Chart with data:", {
+        dates,
+        revenueData,
+      });
 
       new Chart(ctx, {
         type: "line",
@@ -302,30 +317,17 @@ async function loadOverviewStats() {
           responsive: true,
           scales: {
             x: {
-              title: {
-                display: true,
-                text: "Date",
-              },
-              ticks: {
-                maxTicksLimit: 10, // Limit the number of labels for readability
-              },
+              title: { display: true, text: "Date" },
+              ticks: { maxTicksLimit: 10 },
             },
             y: {
-              title: {
-                display: true,
-                text: "Revenue (₦)",
-              },
+              title: { display: true, text: "Revenue (₦)" },
               beginAtZero: true,
             },
           },
           plugins: {
-            legend: {
-              position: "top",
-            },
-            title: {
-              display: true,
-              text: "Revenue Over Time (Last 30 Days)",
-            },
+            legend: { position: "top" },
+            title: { display: true, text: "Revenue Over Time (Last 30 Days)" },
           },
         },
       });
@@ -333,17 +335,22 @@ async function loadOverviewStats() {
       console.error("Revenue Over Time Chart canvas not found.");
     }
 
-    // Render the Orders Per Product bar chart
+    // Orders Per Product Chart
     const ordersPerProductChartCanvas = document.getElementById(
       "ordersPerProductChart"
     );
     if (ordersPerProductChartCanvas) {
       const ctx = ordersPerProductChartCanvas.getContext("2d");
-
-      const productNames = statsData.ordersPerProduct.map((entry) => entry._id);
-      const orderCounts = statsData.ordersPerProduct.map(
+      const productNames = (statsData.ordersPerProduct || []).map(
+        (entry) => entry._id
+      );
+      const orderCounts = (statsData.ordersPerProduct || []).map(
         (entry) => entry.orderCount
       );
+      console.log("📈 Rendering Orders Per Product Chart with data:", {
+        productNames,
+        orderCounts,
+      });
 
       new Chart(ctx, {
         type: "bar",
@@ -362,31 +369,16 @@ async function loadOverviewStats() {
         options: {
           responsive: true,
           scales: {
-            x: {
-              title: {
-                display: true,
-                text: "Product",
-              },
-            },
+            x: { title: { display: true, text: "Product" } },
             y: {
-              title: {
-                display: true,
-                text: "Number of Orders",
-              },
+              title: { display: true, text: "Number of Orders" },
               beginAtZero: true,
-              ticks: {
-                stepSize: 1, // Ensure whole numbers for order counts
-              },
+              ticks: { stepSize: 1 },
             },
           },
           plugins: {
-            legend: {
-              position: "top",
-            },
-            title: {
-              display: true,
-              text: "Orders Per Product",
-            },
+            legend: { position: "top" },
+            title: { display: true, text: "Orders Per Product" },
           },
         },
       });
@@ -394,12 +386,14 @@ async function loadOverviewStats() {
       console.error("Orders Per Product Chart canvas not found.");
     }
 
-    // Display recent orders (limit to 5)
+    // Recent Orders
     recentOrdersEl.innerHTML = "";
-    if (ordersData.orders.length === 0) {
+    if (!ordersData.orders || ordersData.orders.length === 0) {
+      console.log("🟡 No orders returned from /api/orders?page=1");
       recentOrdersEl.innerHTML =
         "<p class='text-gray-500 text-center'>No recent orders.</p>";
     } else {
+      console.log("🖌️ Rendering recent orders:", ordersData.orders);
       const recentOrders = ordersData.orders.slice(0, 5);
       recentOrders.forEach((order) => {
         const div = document.createElement("div");
@@ -447,7 +441,7 @@ async function loadOverviewStats() {
     }
     recentOrdersEl.classList.remove("hidden");
   } catch (error) {
-    console.error("Error loading overview stats:", error);
+    console.error("❌ Error loading overview stats:", error);
     statsError.textContent = error.message;
     statsError.classList.remove("hidden");
     recentOrdersEl.innerHTML =
@@ -483,7 +477,7 @@ async function loadProducts(filter = "") {
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("adminToken");
-        window.location.href = "/auth.html";
+        window.location.href = "/login.html";
         return;
       }
       throw new Error(products.error || "Failed to load products");
@@ -692,7 +686,7 @@ function setupProductModals() {
         if (!res.ok) {
           if (res.status === 401) {
             localStorage.removeItem("adminToken");
-            window.location.href = "/auth.html";
+            window.location.href = "/login.html";
             return;
           }
           throw new Error(data.error || "Failed to add product");
@@ -761,7 +755,7 @@ function setupProductModals() {
         if (!res.ok) {
           if (res.status === 401) {
             localStorage.removeItem("adminToken");
-            window.location.href = "/auth.html";
+            window.location.href = "/login.html";
             return;
           }
           throw new Error(data.error || "Failed to update product");
@@ -799,7 +793,7 @@ async function editProduct(id) {
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("adminToken");
-        window.location.href = "/auth.html";
+        window.location.href = "/login.html";
         return;
       }
       throw new Error(products.error || "Failed to load products");
@@ -842,7 +836,7 @@ async function deleteProduct(id) {
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("adminToken");
-        window.location.href = "/auth.html";
+        window.location.href = "/login.html";
         return;
       }
       throw new Error(data.error || "Failed to delete product");
@@ -897,7 +891,7 @@ async function loadOrders(filter = "", page = 1) {
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("adminToken");
-        window.location.href = "/auth.html";
+        window.location.href = "/login.html";
         return;
       }
       throw new Error(data.error || "Failed to load orders");
@@ -1027,7 +1021,7 @@ function setupOrderModals() {
       if (!res.ok) {
         if (res.status === 401) {
           localStorage.removeItem("adminToken");
-          window.location.href = "/auth.html";
+          window.location.href = "/login.html";
           return;
         }
         throw new Error(data.error || "Failed to update order status");
@@ -1133,7 +1127,7 @@ async function viewOrderDetails(id) {
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem("adminToken");
-        window.location.href = "/auth.html";
+        window.location.href = "/login.html";
         return;
       }
       throw new Error(order.error || "Failed to load order details");
@@ -1261,7 +1255,7 @@ function setupSettings() {
       if (!res.ok) {
         if (res.status === 401) {
           localStorage.removeItem("adminToken");
-          window.location.href = "/auth.html";
+          window.location.href = "/login.html";
           return;
         }
         throw new Error(data.error || "Failed to change password");
@@ -1269,7 +1263,7 @@ function setupSettings() {
 
       alert("Password changed successfully! Please log in again.");
       localStorage.removeItem("adminToken");
-      window.location.href = "/auth.html";
+      window.location.href = "/login.html";
     } catch (error) {
       errorDiv.textContent = error.message;
       errorDiv.classList.remove("hidden");
@@ -1311,7 +1305,7 @@ function setupSettings() {
       if (!res.ok) {
         if (res.status === 401) {
           localStorage.removeItem("adminToken");
-          window.location.href = "/auth.html";
+          window.location.href = "/login.html";
           return;
         }
         throw new Error(data.error || "Failed to update email");
