@@ -179,7 +179,7 @@ async function loadOverviewStats() {
       if (statsRes.status === 401) {
         console.warn("🔒 401 Unauthorized - Redirecting to login");
         localStorage.removeItem("adminToken");
-        window.location.href = "/auth.html";
+        window.location.href = "/login.html";
         return;
       }
       throw new Error(statsData.error || "Failed to load stats");
@@ -203,7 +203,7 @@ async function loadOverviewStats() {
       if (ordersRes.status === 401) {
         console.warn("🔒 401 Unauthorized - Redirecting to login");
         localStorage.removeItem("adminToken");
-        window.location.href = "/auth.html";
+        window.location.href = "/login.html";
         return;
       }
       throw new Error(ordersData.error || "Failed to load orders");
