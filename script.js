@@ -61,7 +61,7 @@ function copyOrderNumber(btn) {
 document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("adminToken");
   if (!token) {
-    window.location.href = "/auth.html";
+    window.location.href = "/login.html";
     return;
   }
 
