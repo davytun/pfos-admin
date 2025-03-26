@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+body {
+  background-color: white;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+#orderStatusChart {
+  max-width: 400px;
+  max-height: 400px;
+}
