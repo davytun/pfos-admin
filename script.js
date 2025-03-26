@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .toLowerCase();
   console.log("Current page:", currentPage);
 
-  if (currentPage === "index.html") {
+  if (currentPage === "/" || currentPage === "index.html") {
     loadOverviewStats();
     setupOrderModals();
   } else if (
