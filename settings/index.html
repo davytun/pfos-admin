@@ -4,17 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings - Solar Admin Dashboard</title>
-    <link href="../src/output.css" rel="stylesheet" />
+    <link href="/src/output.css" rel="stylesheet" />
   </head>
   <body class="bg-gray-100 font-sans">
     <div class="flex h-screen">
       <!-- Sidebar -->
       <div class="w-64 bg-gray-900 text-white p-6 fixed h-full">
-        <img src="../src/image/logo.png" class="mb-8" />
+        <img src="/src/image/logo.png" class="mb-8" alt="Logo" />
         <ul class="space-y-4">
           <li>
             <a
-              href="../index.html"
+              href="/index.html"
               class="flex items-center space-x-2 hover:text-white"
               ><svg
                 class="w-5 h-5"
@@ -33,7 +33,7 @@
           </li>
           <li>
             <a
-              href="../products/index.html"
+              href="/products/index.html"
               class="flex items-center space-x-2 hover:text-white"
               ><svg
                 class="w-5 h-5"
@@ -52,7 +52,7 @@
           </li>
           <li>
             <a
-              href="../orders/index.html"
+              href="/orders/index.html"
               class="flex items-center space-x-2 hover:text-white"
               ><svg
                 class="w-5 h-5"
@@ -71,7 +71,7 @@
           </li>
           <li>
             <a
-              href="./index.html"
+              href="/settings/index.html"
               class="flex items-center space-x-2 text-blue-300 hover:text-white"
               ><svg
                 class="w-5 h-5"
@@ -223,11 +223,98 @@
                 </button>
               </form>
             </div>
+
+            <!-- Account Details -->
+            <div class="bg-white p-6 rounded-lg shadow">
+              <h3 class="text-lg font-medium text-gray-700 mb-4">
+                Account Details
+              </h3>
+              <div id="account-error" class="hidden text-red-500 mb-4"></div>
+              <div id="account-details" class="space-y-2 mb-4">
+                <p>
+                  <strong>Account Number:</strong>
+                  <span id="account-number">Loading...</span>
+                </p>
+                <p>
+                  <strong>Bank Name:</strong>
+                  <span id="bank-name">Loading...</span>
+                </p>
+                <p>
+                  <strong>Account Name:</strong>
+                  <span id="account-name">Loading...</span>
+                </p>
+              </div>
+              <h4 class="text-md font-medium text-gray-700 mb-2">
+                Update Account Details
+              </h4>
+              <form id="update-account-form" class="space-y-4">
+                <div>
+                  <label for="new-account-number" class="block text-gray-700"
+                    >Account Number:</label
+                  >
+                  <input
+                    type="text"
+                    id="new-account-number"
+                    class="w-full p-2 border rounded mt-1 focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label for="new-bank-name" class="block text-gray-700"
+                    >Bank Name:</label
+                  >
+                  <input
+                    type="text"
+                    id="new-bank-name"
+                    class="w-full p-2 border rounded mt-1 focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label for="new-account-name" class="block text-gray-700"
+                    >Account Name:</label
+                  >
+                  <input
+                    type="text"
+                    id="new-account-name"
+                    class="w-full p-2 border rounded mt-1 focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition flex items-center"
+                >
+                  <span>Update Account</span>
+                  <svg
+                    id="update-account-loading"
+                    class="hidden animate-spin h-5 w-5 ml-2 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    ></circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                </button>
+              </form>
+            </div>
           </section>
         </main>
       </div>
     </div>
 
-    <script src="../script.js"></script>
+    <script src="/script.js"></script>
   </body>
 </html>

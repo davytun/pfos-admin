@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://pfos-backend.onrender.com";
+const API_BASE_URL = "https://pfos-backend.vercel.app";
 
 // Utility function to fetch with retry on 429 errors
 async function fetchWithRetry(url, options, retries = 3, backoff = 1000) {
@@ -98,9 +98,12 @@ document.addEventListener("DOMContentLoaded", () => {
     setupOrderSearch();
   } else if (currentPage.startsWith("settings")) {
     setupSettings();
+  } else if (currentPage.startsWith("messages")) {
+    loadMessages();
+  } else if (currentPage.includes("messages")) {
+    loadMessages();
   }
 });
-
 
 async function loadAdminDetails() {
   const adminNameEl = document.getElementById("admin-name");
@@ -419,22 +422,30 @@ async function loadOverviewStats() {
         div.innerHTML = `
           <div class="flex items-center space-x-2">
             <p class="text-gray-800 font-medium">Order #${order.orderNumber}</p>
-            <button class="copy-order-number-btn bg-gray-200 text-gray-800 px-2 py-1 rounded hover:bg-gray-300 transition text-sm" data-order-number="${order.orderNumber}">
+            <button class="copy-order-number-btn bg-gray-200 text-gray-800 px-2 py-1 rounded hover:bg-gray-300 transition text-sm" data-order-number="${
+              order.orderNumber
+            }">
               Copy
             </button>
           </div>
           <div class="text-right">
-            <p class="text-gray-800 font-medium">₦${(order.totalPrice ?? 0).toLocaleString()}</p>
+            <p class="text-gray-800 font-medium">₦${(
+              order.totalPrice ?? 0
+            ).toLocaleString()}</p>
             <p class="text-sm ${
               order.orderStatus === "shipped"
                 ? "text-green-500"
                 : order.orderStatus === "canceled"
                 ? "text-red-500"
                 : "text-yellow-500"
-            }">${order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}</p>
+            }">${
+          order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)
+        }</p>
           </div>
           <div>
-            <button class="view-order-btn bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition" data-id="${order._id}">View Details</button>
+            <button class="view-order-btn bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition" data-id="${
+              order._id
+            }">View Details</button>
           </div>
         `;
         recentOrdersEl.appendChild(div);
@@ -501,13 +512,16 @@ async function loadProducts(filter = "") {
       noProducts.classList.remove("hidden");
     } else {
       filteredProducts.forEach((product) => {
+        const imageUrl = product.image.startsWith("http")
+          ? product.image
+          : `${API_BASE_URL}${product.image}`; // Handle Cloudinary vs old paths
         const div = document.createElement("div");
         div.className =
           "bg-white p-4 rounded-lg shadow hover:shadow-lg transition";
         div.innerHTML = `
-          <img src="${API_BASE_URL}${product.image}" alt="${
+          <img src="${imageUrl}" alt="${
           product.name
-        }" class="w-full h-40 object-cover rounded-md mb-4">
+        }" class="w-full h-40 object-cover rounded-md mb-4" onerror="this.src='../assets/images/placeholder.jpg'">
           <h3 class="text-lg font-medium text-gray-800">${product.name}</h3>
           <p class="text-gray-600">₦${product.price.toLocaleString()}</p>
           <p class="text-sm text-gray-500 line-clamp-2">${
@@ -810,14 +824,15 @@ async function editProduct(id) {
 
     const product = products.find((p) => p._id === id);
     if (product) {
+      const imageUrl = product.image.startsWith("http")
+        ? product.image
+        : `${API_BASE_URL}${product.image}`;
       document.getElementById("edit-product-id").value = product._id;
       document.getElementById("edit-product-name").value = product.name;
       document.getElementById("edit-product-price").value = product.price;
       document.getElementById("edit-product-description").value =
         product.description;
-      document.getElementById(
-        "edit-image-preview"
-      ).src = `${API_BASE_URL}${product.image}`;
+      document.getElementById("edit-image-preview").src = imageUrl;
       const editModal = document.getElementById("edit-product-modal");
       editModal.classList.remove("hidden");
       setTimeout(
@@ -1217,13 +1232,65 @@ function setupOrderSearch() {
 function setupSettings() {
   const changePasswordForm = document.getElementById("change-password-form");
   const updateEmailForm = document.getElementById("update-email-form");
+  const updateAccountForm = document.getElementById("update-account-form");
+  const accountNumberDisplay = document.getElementById("account-number");
+  const bankNameDisplay = document.getElementById("bank-name");
+  const accountNameDisplay = document.getElementById("account-name");
 
-  if (!changePasswordForm || !updateEmailForm) {
+  if (!changePasswordForm || !updateEmailForm || !updateAccountForm) {
     console.error(
       "Required elements for setupSettings are missing on this page."
     );
     return;
   }
+
+  if (!accountNumberDisplay || !bankNameDisplay || !accountNameDisplay) {
+    console.error(
+      "Account detail elements are missing: account-number, bank-name, or account-name"
+    );
+    return;
+  }
+
+  // Fetch current account details
+  const fetchAccountDetails = async () => {
+    try {
+      const res = await fetchWithRetry(`${API_BASE_URL}/api/account`, {
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem("adminToken");
+          window.location.href = "/login.html";
+          return;
+        }
+        throw new Error(data.error || "Failed to fetch account details");
+      }
+
+      accountNumberDisplay.textContent = data.accountNumber || "N/A";
+      bankNameDisplay.textContent = data.bankName || "N/A";
+      accountNameDisplay.textContent = data.accountName || "N/A";
+
+      // Pre-fill the form with the fetched data
+      document.getElementById("new-account-number").value =
+        data.accountNumber || "";
+      document.getElementById("new-bank-name").value = data.bankName || "";
+      document.getElementById("new-account-name").value =
+        data.accountName || "";
+    } catch (error) {
+      console.error("Error fetching account details:", error);
+      const accountErrorDiv = document.getElementById("account-error");
+      if (accountErrorDiv) {
+        accountErrorDiv.textContent = error.message;
+        accountErrorDiv.classList.remove("hidden");
+      }
+      accountNumberDisplay.textContent = "N/A";
+      bankNameDisplay.textContent = "N/A";
+      accountNameDisplay.textContent = "N/A";
+    }
+  };
+
+  fetchAccountDetails();
 
   changePasswordForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1329,6 +1396,389 @@ function setupSettings() {
       updateEmailBtn.disabled = false;
       loadingIcon.classList.add("hidden");
     }
+  });
+
+  updateAccountForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const accountNumber = document
+      .getElementById("new-account-number")
+      .value.trim();
+    const bankName = document.getElementById("new-bank-name").value.trim();
+    const accountName = document
+      .getElementById("new-account-name")
+      .value.trim();
+    const updateAccountBtn = updateAccountForm.querySelector(
+      "button[type='submit']"
+    );
+    const loadingIcon = document.getElementById("update-account-loading");
+    const errorDiv = document.getElementById("account-error");
+
+    if (!accountNumber || !bankName || !accountName) {
+      errorDiv.textContent = "Please fill in all fields";
+      errorDiv.classList.remove("hidden");
+      return;
+    }
+
+    updateAccountBtn.disabled = true;
+    loadingIcon.classList.remove("hidden");
+    errorDiv.classList.add("hidden");
+
+    try {
+      const res = await fetchWithRetry(`${API_BASE_URL}/api/account`, {
+        method: "PUT",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ accountNumber, bankName, accountName }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem("adminToken");
+          window.location.href = "/login.html";
+          return;
+        }
+        throw new Error(data.error || "Failed to update account details");
+      }
+
+      alert("Account details updated successfully");
+      fetchAccountDetails(); // Refresh displayed details
+    } catch (error) {
+      errorDiv.textContent = error.message;
+      errorDiv.classList.remove("hidden");
+    } finally {
+      updateAccountBtn.disabled = false;
+      loadingIcon.classList.add("hidden");
+    }
+  });
+}
+
+// Messages Page Functions
+function loadMessages() {
+  const messagesList = document.getElementById("messages-list");
+  const messagesError = document.getElementById("messages-error");
+  const filterAllBtn = document.getElementById("filter-all");
+  const filterUnreadBtn = document.getElementById("filter-unread");
+  const filterReadBtn = document.getElementById("filter-read");
+  const replyModal = document.getElementById("reply-modal");
+  const replyForm = document.getElementById("reply-form");
+  const replyEmailInput = document.getElementById("reply-email");
+  const replyMessageInput = document.getElementById("reply-message");
+  const sendReplyBtn = document.getElementById("send-reply-btn");
+  const cancelReplyBtn = document.getElementById("cancel-reply-btn");
+  const replyLoadingIcon = document.getElementById("reply-loading");
+  const prevPageBtn = document.getElementById("prev-page");
+  const nextPageBtn = document.getElementById("next-page");
+  const pageInfo = document.getElementById("page-info");
+
+  if (
+    !messagesList ||
+    !messagesError ||
+    !filterAllBtn ||
+    !filterUnreadBtn ||
+    !filterReadBtn
+  ) {
+    console.error(
+      "Required elements for loadMessages are missing on this page."
+    );
+    return;
+  }
+
+  if (
+    !replyModal ||
+    !replyForm ||
+    !replyEmailInput ||
+    !replyMessageInput ||
+    !sendReplyBtn ||
+    !cancelReplyBtn ||
+    !replyLoadingIcon
+  ) {
+    console.error(
+      "Required elements for reply modal are missing on this page."
+    );
+    return;
+  }
+
+  if (!prevPageBtn || !nextPageBtn || !pageInfo) {
+    console.error("Required elements for pagination are missing on this page.");
+    return;
+  }
+
+  let currentFilter = "all"; // Default filter
+  let currentMessageId = null; // To store the message ID being replied to
+  let currentPage = 1;
+  let totalPages = 1;
+
+  // Function to show success notification
+  const showSuccessNotification = (message) => {
+    const notification = document.getElementById("success-notification");
+    if (!notification) {
+      console.error("Success notification element not found.");
+      return;
+    }
+    notification.textContent = message;
+    notification.classList.remove("hidden");
+    notification.classList.add("show");
+    setTimeout(() => {
+      notification.classList.remove("show");
+      notification.classList.add("hidden");
+    }, 3000); // Hide after 3 seconds
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const res = await fetchWithRetry(
+        `${API_BASE_URL}/api/messages?page=${currentPage}&limit=10`,
+        {
+          headers: authHeaders(),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem("adminToken");
+          window.location.href = "/login.html";
+          return;
+        }
+        throw new Error(data.error || "Failed to fetch messages");
+      }
+
+      const messages = data.messages;
+      totalPages = data.totalPages;
+      currentPage = data.currentPage;
+
+      let filteredMessages = messages;
+      if (currentFilter === "unread") {
+        filteredMessages = messages.filter((msg) => !msg.isRead);
+      } else if (currentFilter === "read") {
+        filteredMessages = messages.filter((msg) => msg.isRead);
+      }
+
+      if (filteredMessages.length === 0) {
+        messagesList.innerHTML = `<p class="text-gray-600">No ${
+          currentFilter === "all" ? "" : currentFilter
+        } messages found.</p>`;
+      } else {
+        messagesList.innerHTML = "";
+        filteredMessages.forEach((message) => {
+          const messageDiv = document.createElement("div");
+          messageDiv.className = `bg-white p-4 rounded-lg shadow flex justify-between items-start ${
+            message.isRead ? "opacity-75" : "font-semibold"
+          }`;
+          messageDiv.innerHTML = `
+            <div>
+              <p><strong>Name:</strong> ${message.name}</p>
+              <p><strong>Email:</strong> <a href="mailto:${
+                message.email
+              }" class="text-blue-500 hover:underline">${message.email}</a></p>
+              <p><strong>Message:</strong> ${message.message}</p>
+              <p class="text-sm text-gray-500"><strong>Received:</strong> ${new Date(
+                message.createdAt
+              ).toLocaleString()}</p>
+            </div>
+            <div class="flex space-x-2">
+              <button class="reply-btn bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition" data-id="${
+                message._id
+              }" data-email="${message.email}">
+                Reply
+              </button>
+              <button class="toggle-read-btn bg-${
+                message.isRead ? "green" : "blue"
+              }-500 text-white px-3 py-1 rounded hover:bg-${
+            message.isRead ? "green" : "blue"
+          }-600 transition" data-id="${message._id}">
+                ${message.isRead ? "Mark Unread" : "Mark Read"}
+                <svg class="loading-icon w-2 h-2 ml-2 animate-spin hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+              </button>
+              <button class="delete-btn bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition" data-id="${
+                message._id
+              }">
+                Delete
+                <svg class="loading-icon w-2 h-2 ml-2 animate-spin hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+              </button>
+            </div>
+          `;
+          messagesList.appendChild(messageDiv);
+        });
+      }
+
+      // Update pagination controls
+      pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+      prevPageBtn.disabled = currentPage === 1;
+      nextPageBtn.disabled = currentPage === totalPages;
+
+      // Add event listeners for toggle read/unread buttons
+      document.querySelectorAll(".toggle-read-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const messageId = btn.getAttribute("data-id");
+          const loadingIcon = btn.querySelector(".loading-icon");
+          btn.disabled = true;
+          loadingIcon.classList.remove("hidden");
+
+          try {
+            const res = await fetchWithRetry(
+              `${API_BASE_URL}/api/messages/${messageId}/read`,
+              {
+                method: "PUT",
+                headers: authHeaders(),
+              }
+            );
+
+            if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error || "Failed to update message status");
+            }
+
+            await fetchMessages(); // Refresh the message list
+          } catch (error) {
+            console.error("Toggle read error:", error);
+            messagesError.textContent = error.message;
+            messagesError.classList.remove("hidden");
+          } finally {
+            btn.disabled = false;
+            loadingIcon.classList.add("hidden");
+          }
+        });
+      });
+
+      // Add event listeners for delete buttons
+      document.querySelectorAll(".delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Are you sure you want to delete this message?")) return;
+
+          const messageId = btn.getAttribute("data-id");
+          const loadingIcon = btn.querySelector(".loading-icon");
+          btn.disabled = true;
+          loadingIcon.classList.remove("hidden");
+
+          try {
+            const res = await fetchWithRetry(
+              `${API_BASE_URL}/api/messages/${messageId}`,
+              {
+                method: "DELETE",
+                headers: authHeaders(),
+              }
+            );
+
+            if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error || "Failed to delete message");
+            }
+
+            await fetchMessages(); // Refresh the message list
+          } catch (error) {
+            console.error("Delete error:", error);
+            messagesError.textContent = error.message;
+            messagesError.classList.remove("hidden");
+          } finally {
+            btn.disabled = false;
+            loadingIcon.classList.add("hidden");
+          }
+        });
+      });
+
+      // Add event listeners for reply buttons
+      document.querySelectorAll(".reply-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          currentMessageId = btn.getAttribute("data-id");
+          const email = btn.getAttribute("data-email");
+          replyEmailInput.value = email;
+          replyMessageInput.value = "";
+          replyModal.classList.remove("hidden");
+        });
+      });
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      messagesError.textContent = error.message;
+      messagesError.classList.remove("hidden");
+      messagesList.innerHTML =
+        '<p class="text-gray-600">Unable to load messages.</p>';
+    }
+  };
+
+  fetchMessages();
+
+  // Add event listeners for filter buttons
+  filterAllBtn.addEventListener("click", () => {
+    currentFilter = "all";
+    currentPage = 1; // Reset to first page when changing filter
+    fetchMessages();
+  });
+
+  filterUnreadBtn.addEventListener("click", () => {
+    currentFilter = "unread";
+    currentPage = 1; // Reset to first page when changing filter
+    fetchMessages();
+  });
+
+  filterReadBtn.addEventListener("click", () => {
+    currentFilter = "read";
+    currentPage = 1; // Reset to first page when changing filter
+    fetchMessages();
+  });
+
+  // Add event listeners for pagination buttons
+  prevPageBtn.addEventListener("click", () => {
+    if (currentPage > 1) {
+      currentPage--;
+      fetchMessages();
+    }
+  });
+
+  nextPageBtn.addEventListener("click", () => {
+    if (currentPage < totalPages) {
+      currentPage++;
+      fetchMessages();
+    }
+  });
+
+  // Handle reply form submission
+  replyForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const reply = replyMessageInput.value.trim();
+    if (!reply) {
+      alert("Please enter a reply message.");
+      return;
+    }
+
+    sendReplyBtn.disabled = true;
+    replyLoadingIcon.classList.remove("hidden");
+
+    try {
+      const res = await fetchWithRetry(`${API_BASE_URL}/api/messages/reply`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ messageId: currentMessageId, reply }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to send reply");
+      }
+      showSuccessNotification("Reply sent successfully!");
+      replyModal.classList.add("hidden");
+      fetchMessages(); // Refresh messages after reply
+    } catch (error) {
+      messagesError.textContent = error.message;
+      messagesError.classList.remove("hidden");
+    } finally {
+      sendReplyBtn.disabled = false;
+      replyLoadingIcon.classList.add("hidden");
+    }
+  });
+
+  // Handle cancel button in reply modal
+  cancelReplyBtn.addEventListener("click", () => {
+    replyModal.classList.add("hidden");
+    replyMessageInput.value = "";
   });
 }
 
