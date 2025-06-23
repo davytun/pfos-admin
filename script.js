@@ -418,21 +418,15 @@ async function loadOverviewStats() {
       recentOrders.forEach((order) => {
         const div = document.createElement("div");
         div.className =
-          "flex justify-between items-center border-b py-3 px-4 hover:bg-gray-50 transition rounded-lg";
+          "flex gap-4 justify-between items-center border-b py-3 px-4 hover:bg-gray-50 transition rounded-lg";
         div.innerHTML = `
-          <div class="flex items-center space-x-2">
-            <p class="text-gray-800 font-medium">Order #${order.orderNumber}</p>
-            <button class="copy-order-number-btn bg-gray-200 text-gray-800 px-2 py-1 rounded hover:bg-gray-300 transition text-sm" data-order-number="${
-              order.orderNumber
-            }">
-              Copy
-            </button>
-          </div>
-          <div class="text-right">
+        <p class="text-gray-800 font-medium">Order #${order.orderNumber}</p>
+          
+          <div >
             <p class="text-gray-800 font-medium">₦${(
               order.totalPrice ?? 0
             ).toLocaleString()}</p>
-            <p class="text-sm ${
+            <p class="text-xs md:text-sm ${
               order.orderStatus === "shipped"
                 ? "text-green-500"
                 : order.orderStatus === "canceled"
